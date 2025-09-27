@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>E-Book Store - Digital Products Marketplace</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -706,6 +711,22 @@
             background-color: var(--danger-color);
         }
 
+        /* Loading Spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid var(--primary-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         /* Footer */
         footer {
             background-color: var(--dark-color);
@@ -902,6 +923,7 @@
                     <p>Explore our collection of high-quality digital books</p>
                 </div>
                 <div class="product-grid" id="productGrid">
+                    <div class="spinner"></div>
                     <!-- Products will be dynamically loaded here -->
                 </div>
             </div>
@@ -914,8 +936,8 @@
                     <h2>About Us</h2>
                 </div>
                 <div class="admin-card" id="aboutContent">
-                    <p>Welcome to our E-Book Store! We provide high-quality digital books on various topics. Our mission is to make knowledge accessible to everyone through affordable digital content.</p>
-                    <p>All our e-books are carefully curated and written by experts in their respective fields. We ensure that you get the best value for your money.</p>
+                    <div class="spinner"></div>
+                    <!-- About content will be dynamically loaded here -->
                 </div>
             </div>
         </section>
@@ -1016,6 +1038,11 @@
                                     </tr>
                                 </thead>
                                 <tbody id="adminProductsTable">
+                                    <tr>
+                                        <td colspan="6" style="text-align: center;">
+                                            <div class="spinner"></div>
+                                        </td>
+                                    </tr>
                                     <!-- Products will be dynamically loaded here -->
                                 </tbody>
                             </table>
@@ -1161,7 +1188,7 @@
                         <h3>Edit About Us</h3>
                         <form id="aboutForm">
                             <div class="form-group">
-                                <label for="aboutContent">About Content</label>
+                                <label for="aboutContentEditor">About Content</label>
                                 <textarea id="aboutContentEditor" rows="10" required>Welcome to our E-Book Store! We provide high-quality digital books on various topics. Our mission is to make knowledge accessible to everyone through affordable digital content.
 
 All our e-books are carefully curated and written by experts in their respective fields. We ensure that you get the best value for your money.</textarea>
@@ -1212,6 +1239,11 @@ All our e-books are carefully curated and written by experts in their respective
                                     </tr>
                                 </thead>
                                 <tbody id="ordersTable">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center;">
+                                            <div class="spinner"></div>
+                                        </td>
+                                    </tr>
                                     <!-- Orders will be dynamically loaded here -->
                                 </tbody>
                             </table>
@@ -1409,40 +1441,31 @@ All our e-books are carefully curated and written by experts in their respective
     </footer>
 
     <script>
-        // Data Storage
-        let products = [
-            {
-                id: 1,
-                title: "Introduction to Web Development",
-                author: "John Doe",
-                description: "Learn the basics of web development including HTML, CSS, and JavaScript. This comprehensive guide covers everything you need to know to get started with web development.",
-                price: 499,
-                discountPrice: 399,
-                thumbnail: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-                pdf: "sample.pdf"
-            },
-            {
-                id: 2,
-                title: "Advanced JavaScript Techniques",
-                author: "Jane Smith",
-                description: "Master advanced JavaScript concepts and techniques to take your web development skills to the next level. Includes practical examples and exercises.",
-                price: 799,
-                discountPrice: 649,
-                thumbnail: "https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-                pdf: "sample.pdf"
-            },
-            {
-                id: 3,
-                title: "Digital Marketing Essentials",
-                author: "Robert Johnson",
-                description: "Discover the fundamentals of digital marketing including SEO, social media marketing, and content marketing strategies.",
-                price: 599,
-                discountPrice: 499,
-                thumbnail: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
-                pdf: "sample.pdf"
-            }
-        ];
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
 
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // Data References
+        const productsRef = db.collection('products');
+        const ordersRef = db.collection('orders');
+        const settingsRef = db.collection('settings').doc('payment');
+        const aboutRef = db.collection('settings').doc('about');
+        const socialRef = db.collection('settings').doc('social');
+
+        // Global Variables
+        let products = [];
         let cart = [];
         let orders = [];
         let paymentSettings = {
@@ -1453,9 +1476,7 @@ All our e-books are carefully curated and written by experts in their respective
             ifscCode: "IFSC Code",
             qrCode: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"
         };
-
         let aboutContent = "Welcome to our E-Book Store! We provide high-quality digital books on various topics. Our mission is to make knowledge accessible to everyone through affordable digital content.\n\nAll our e-books are carefully curated and written by experts in their respective fields. We ensure that you get the best value for your money.";
-
         let socialLinks = {
             facebook: "https://facebook.com/yourpage",
             youtube: "https://youtube.com/yourchannel",
@@ -1496,13 +1517,12 @@ All our e-books are carefully curated and written by experts in their respective
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            renderProducts();
-            updateCartUI();
             setupEventListeners();
+            loadProducts();
             loadPaymentSettings();
             loadAboutContent();
             loadSocialLinks();
-            updateAdminStats();
+            loadOrders();
         });
 
         // Setup Event Listeners
@@ -1513,9 +1533,11 @@ All our e-books are carefully curated and written by experts in their respective
             });
 
             adminLogoutBtn.addEventListener('click', () => {
-                adminPanel.style.display = 'none';
-                mainContent.style.display = 'block';
-                showNotification('Logged out successfully');
+                auth.signOut().then(() => {
+                    adminPanel.style.display = 'none';
+                    mainContent.style.display = 'block';
+                    showNotification('Logged out successfully');
+                });
             });
 
             // Login form
@@ -1524,13 +1546,12 @@ All our e-books are carefully curated and written by experts in their respective
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
 
+                // Simple authentication (in production, use Firebase Auth)
                 if (username === 'Kamran Ansari' && password === 'Kamran@123') {
                     loginModal.style.display = 'none';
                     adminPanel.style.display = 'block';
                     mainContent.style.display = 'none';
                     showNotification('Login successful');
-                    renderAdminProducts();
-                    renderOrders();
                 } else {
                     showNotification('Invalid username or password', 'error');
                 }
@@ -1606,24 +1627,50 @@ All our e-books are carefully curated and written by experts in their respective
                     return;
                 }
                 
-                // Create order
-                const order = {
-                    id: Date.now(),
-                    customer: 'Customer',
-                    products: [...cart],
-                    total: cart.reduce((sum, item) => sum + item.price, 0),
-                    paymentStatus: 'Pending',
-                    paymentProof: paymentProof.name,
-                    transactionId: transactionId,
-                    date: new Date().toISOString()
-                };
+                // Upload payment proof to Firebase Storage
+                const storageRef = storage.ref(`payment_proofs/${Date.now()}_${paymentProof.name}`);
+                const uploadTask = storageRef.put(paymentProof);
                 
-                orders.push(order);
-                cart = [];
-                updateCartUI();
-                paymentModal.style.display = 'none';
-                orderSuccessModal.style.display = 'flex';
-                updateAdminStats();
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        // Progress indicator can be added here
+                    }, 
+                    (error) => {
+                        showNotification('Error uploading payment proof', 'error');
+                    }, 
+                    () => {
+                        // Get download URL and create order
+                        uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                            // Create order
+                            const order = {
+                                id: Date.now(),
+                                customer: 'Customer',
+                                products: cart.map(item => ({
+                                    id: item.id,
+                                    title: item.title,
+                                    price: item.discountPrice
+                                })),
+                                total: cart.reduce((sum, item) => sum + item.discountPrice, 0),
+                                paymentStatus: 'Pending',
+                                paymentProof: downloadURL,
+                                transactionId: transactionId,
+                                date: new Date().toISOString()
+                            };
+                            
+                            // Save order to Firestore
+                            ordersRef.add(order).then((docRef) => {
+                                cart = [];
+                                updateCartUI();
+                                paymentModal.style.display = 'none';
+                                orderSuccessModal.style.display = 'flex';
+                                loadOrders();
+                                updateAdminStats();
+                            }).catch((error) => {
+                                showNotification('Error creating order', 'error');
+                            });
+                        });
+                    }
+                );
             });
 
             // Continue shopping
@@ -1634,8 +1681,22 @@ All our e-books are carefully curated and written by experts in their respective
             // Contact form
             contactForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                showNotification('Message sent successfully');
-                contactForm.reset();
+                
+                // Save contact message to Firestore
+                const contactMessage = {
+                    name: document.getElementById('contactName').value,
+                    email: document.getElementById('contactEmail').value,
+                    subject: document.getElementById('contactSubject').value,
+                    message: document.getElementById('contactMessage').value,
+                    date: new Date().toISOString()
+                };
+                
+                db.collection('contacts').add(contactMessage).then(() => {
+                    showNotification('Message sent successfully');
+                    contactForm.reset();
+                }).catch((error) => {
+                    showNotification('Error sending message', 'error');
+                });
             });
 
             // Add product form
@@ -1650,59 +1711,170 @@ All our e-books are carefully curated and written by experts in their respective
                 const thumbnail = document.getElementById('productThumbnail').files[0];
                 const pdf = document.getElementById('productPdf').files[0];
                 
-                const newProduct = {
-                    id: Date.now(),
-                    title,
-                    author,
-                    price,
-                    discountPrice,
-                    description,
-                    thumbnail: URL.createObjectURL(thumbnail),
-                    pdf: pdf.name
-                };
+                // Upload thumbnail to Firebase Storage
+                const thumbnailRef = storage.ref(`thumbnails/${Date.now()}_${thumbnail.name}`);
+                const thumbnailUploadTask = thumbnailRef.put(thumbnail);
                 
-                products.push(newProduct);
-                renderProducts();
-                renderAdminProducts();
-                addProductForm.reset();
-                showNotification('Product added successfully');
-                updateAdminStats();
+                thumbnailUploadTask.on('state_changed', 
+                    (snapshot) => {
+                        // Progress indicator can be added here
+                    }, 
+                    (error) => {
+                        showNotification('Error uploading thumbnail', 'error');
+                    }, 
+                    () => {
+                        // Get thumbnail download URL
+                        thumbnailUploadTask.snapshot.ref.getDownloadURL().then((thumbnailURL) => {
+                            // Upload PDF to Firebase Storage
+                            const pdfRef = storage.ref(`pdfs/${Date.now()}_${pdf.name}`);
+                            const pdfUploadTask = pdfRef.put(pdf);
+                            
+                            pdfUploadTask.on('state_changed', 
+                                (snapshot) => {
+                                    // Progress indicator can be added here
+                                }, 
+                                (error) => {
+                                    showNotification('Error uploading PDF', 'error');
+                                }, 
+                                () => {
+                                    // Get PDF download URL
+                                    pdfUploadTask.snapshot.ref.getDownloadURL().then((pdfURL) => {
+                                        // Create product
+                                        const newProduct = {
+                                            title,
+                                            author,
+                                            price,
+                                            discountPrice,
+                                            description,
+                                            thumbnail: thumbnailURL,
+                                            pdf: pdfURL,
+                                            dateCreated: new Date().toISOString()
+                                        };
+                                        
+                                        // Save product to Firestore
+                                        productsRef.add(newProduct).then((docRef) => {
+                                            addProductForm.reset();
+                                            showNotification('Product added successfully');
+                                            loadProducts();
+                                            updateAdminStats();
+                                        }).catch((error) => {
+                                            showNotification('Error adding product', 'error');
+                                        });
+                                    });
+                                }
+                            );
+                        });
+                    }
+                );
             });
 
             // Payment settings form
             paymentSettingsForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 
-                paymentSettings = {
-                    upiId: document.getElementById('upiId').value,
-                    bankName: document.getElementById('bankName').value,
-                    accountHolder: document.getElementById('accountHolder').value,
-                    accountNumber: document.getElementById('accountNumber').value,
-                    ifscCode: document.getElementById('ifscCode').value,
-                    qrCode: document.getElementById('qrCode').files[0] ? 
-                        URL.createObjectURL(document.getElementById('qrCode').files[0]) : 
-                        paymentSettings.qrCode
-                };
+                const upiId = document.getElementById('upiId').value;
+                const bankName = document.getElementById('bankName').value;
+                const accountHolder = document.getElementById('accountHolder').value;
+                const accountNumber = document.getElementById('accountNumber').value;
+                const ifscCode = document.getElementById('ifscCode').value;
+                const qrCodeFile = document.getElementById('qrCode').files[0];
                 
-                updatePaymentDisplay();
-                showNotification('Payment settings saved successfully');
+                if (qrCodeFile) {
+                    // Upload QR code to Firebase Storage
+                    const qrCodeRef = storage.ref(`qr_codes/${Date.now()}_${qrCodeFile.name}`);
+                    const qrCodeUploadTask = qrCodeRef.put(qrCodeFile);
+                    
+                    qrCodeUploadTask.on('state_changed', 
+                        (snapshot) => {
+                            // Progress indicator can be added here
+                        }, 
+                        (error) => {
+                            showNotification('Error uploading QR code', 'error');
+                        }, 
+                        () => {
+                            // Get QR code download URL
+                            qrCodeUploadTask.snapshot.ref.getDownloadURL().then((qrCodeURL) => {
+                                // Update payment settings
+                                const settings = {
+                                    upiId,
+                                    bankName,
+                                    accountHolder,
+                                    accountNumber,
+                                    ifscCode,
+                                    qrCode: qrCodeURL,
+                                    dateUpdated: new Date().toISOString()
+                                };
+                                
+                                // Save settings to Firestore
+                                settingsRef.set(settings).then(() => {
+                                    showNotification('Payment settings saved successfully');
+                                    loadPaymentSettings();
+                                }).catch((error) => {
+                                    showNotification('Error saving payment settings', 'error');
+                                });
+                            });
+                        }
+                    );
+                } else {
+                    // Update payment settings without changing QR code
+                    const settings = {
+                        upiId,
+                        bankName,
+                        accountHolder,
+                        accountNumber,
+                        ifscCode,
+                        qrCode: paymentSettings.qrCode,
+                        dateUpdated: new Date().toISOString()
+                    };
+                    
+                    // Save settings to Firestore
+                    settingsRef.set(settings).then(() => {
+                        showNotification('Payment settings saved successfully');
+                        loadPaymentSettings();
+                    }).catch((error) => {
+                        showNotification('Error saving payment settings', 'error');
+                    });
+                }
             });
 
             // About form
             aboutForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 
-                aboutContent = document.getElementById('aboutContentEditor').value;
-                socialLinks = {
+                const content = document.getElementById('aboutContentEditor').value;
+                const links = {
                     facebook: document.getElementById('facebookLink').value,
                     youtube: document.getElementById('youtubeLink').value,
                     instagram: document.getElementById('instagramLink').value,
                     twitter: document.getElementById('twitterLink').value
                 };
                 
-                updateAboutContent();
-                loadSocialLinks();
-                showNotification('About content updated successfully');
+                // Update about content
+                const aboutData = {
+                    content,
+                    dateUpdated: new Date().toISOString()
+                };
+                
+                // Save about content to Firestore
+                aboutRef.set(aboutData).then(() => {
+                    showNotification('About content updated successfully');
+                    loadAboutContent();
+                }).catch((error) => {
+                    showNotification('Error updating about content', 'error');
+                });
+                
+                // Update social links
+                const socialData = {
+                    links,
+                    dateUpdated: new Date().toISOString()
+                };
+                
+                // Save social links to Firestore
+                socialRef.set(socialData).then(() => {
+                    loadSocialLinks();
+                }).catch((error) => {
+                    showNotification('Error updating social links', 'error');
+                });
             });
 
             // E-book editor toolbar
@@ -1795,9 +1967,93 @@ All our e-books are carefully curated and written by experts in their respective
             });
         }
 
+        // Load products from Firestore
+        function loadProducts() {
+            productsRef.orderBy('dateCreated', 'desc').get().then((querySnapshot) => {
+                products = [];
+                querySnapshot.forEach((doc) => {
+                    products.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                renderProducts();
+                updateAdminStats();
+            }).catch((error) => {
+                showNotification('Error loading products', 'error');
+            });
+        }
+
+        // Load payment settings from Firestore
+        function loadPaymentSettings() {
+            settingsRef.get().then((doc) => {
+                if (doc.exists) {
+                    paymentSettings = doc.data();
+                    updatePaymentDisplay();
+                }
+            }).catch((error) => {
+                showNotification('Error loading payment settings', 'error');
+            });
+        }
+
+        // Load about content from Firestore
+        function loadAboutContent() {
+            aboutRef.get().then((doc) => {
+                if (doc.exists) {
+                    aboutContent = doc.data().content;
+                    document.getElementById('aboutContent').innerHTML = aboutContent.replace(/\n/g, '<br>');
+                    document.getElementById('aboutContentEditor').value = aboutContent;
+                }
+            }).catch((error) => {
+                showNotification('Error loading about content', 'error');
+            });
+        }
+
+        // Load social links from Firestore
+        function loadSocialLinks() {
+            socialRef.get().then((doc) => {
+                if (doc.exists) {
+                    socialLinks = doc.data().links;
+                    document.getElementById('facebookLink').value = socialLinks.facebook;
+                    document.getElementById('youtubeLink').value = socialLinks.youtube;
+                    document.getElementById('instagramLink').value = socialLinks.instagram;
+                    document.getElementById('twitterLink').value = socialLinks.twitter;
+                    
+                    document.getElementById('footerFacebook').href = socialLinks.facebook;
+                    document.getElementById('footerYoutube').href = socialLinks.youtube;
+                    document.getElementById('footerInstagram').href = socialLinks.instagram;
+                    document.getElementById('footerTwitter').href = socialLinks.twitter;
+                }
+            }).catch((error) => {
+                showNotification('Error loading social links', 'error');
+            });
+        }
+
+        // Load orders from Firestore
+        function loadOrders() {
+            ordersRef.orderBy('date', 'desc').get().then((querySnapshot) => {
+                orders = [];
+                querySnapshot.forEach((doc) => {
+                    orders.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                renderOrders();
+                updateAdminStats();
+            }).catch((error) => {
+                showNotification('Error loading orders', 'error');
+            });
+        }
+
         // Render products
         function renderProducts() {
             productGrid.innerHTML = '';
+            
+            if (products.length === 0) {
+                productGrid.innerHTML = '<p style="text-align: center; width: 100%;">No products available</p>';
+                return;
+            }
             
             products.forEach(product => {
                 const discount = product.price > product.discountPrice ? 
@@ -1831,14 +2087,14 @@ All our e-books are carefully curated and written by experts in their respective
             // Add event listeners to buttons
             document.querySelectorAll('.view-product').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const productId = parseInt(btn.getAttribute('data-id'));
+                    const productId = btn.getAttribute('data-id');
                     showProductDetail(productId);
                 });
             });
             
             document.querySelectorAll('.add-to-cart').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const productId = parseInt(btn.getAttribute('data-id'));
+                    const productId = btn.getAttribute('data-id');
                     addToCart(productId);
                 });
             });
@@ -1952,7 +2208,7 @@ All our e-books are carefully curated and written by experts in their respective
             // Add event listeners to remove buttons
             document.querySelectorAll('.cart-item-remove').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const productId = parseInt(btn.getAttribute('data-id'));
+                    const productId = btn.getAttribute('data-id');
                     removeFromCart(productId);
                 });
             });
@@ -2007,6 +2263,11 @@ All our e-books are carefully curated and written by experts in their respective
         function renderAdminProducts() {
             adminProductsTable.innerHTML = '';
             
+            if (products.length === 0) {
+                adminProductsTable.innerHTML = '<tr><td colspan="6" style="text-align: center;">No products available</td></tr>';
+                return;
+            }
+            
             products.forEach(product => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -2027,14 +2288,14 @@ All our e-books are carefully curated and written by experts in their respective
             // Add event listeners
             document.querySelectorAll('.edit-product').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const productId = parseInt(btn.getAttribute('data-id'));
+                    const productId = btn.getAttribute('data-id');
                     editProduct(productId);
                 });
             });
             
             document.querySelectorAll('.delete-product').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const productId = parseInt(btn.getAttribute('data-id'));
+                    const productId = btn.getAttribute('data-id');
                     deleteProduct(productId);
                 });
             });
@@ -2062,53 +2323,115 @@ All our e-books are carefully curated and written by experts in their respective
             form.onsubmit = (e) => {
                 e.preventDefault();
                 
-                // Update product
-                product.title = document.getElementById('productTitle').value;
-                product.author = document.getElementById('productAuthor').value;
-                product.price = parseFloat(document.getElementById('productPrice').value);
-                product.discountPrice = parseFloat(document.getElementById('productDiscountPrice').value) || product.price;
-                product.description = document.getElementById('productDescription').value;
-                
+                const title = document.getElementById('productTitle').value;
+                const author = document.getElementById('productAuthor').value;
+                const price = parseFloat(document.getElementById('productPrice').value);
+                const discountPrice = parseFloat(document.getElementById('productDiscountPrice').value) || price;
+                const description = document.getElementById('productDescription').value;
                 const thumbnail = document.getElementById('productThumbnail').files[0];
-                if (thumbnail) {
-                    product.thumbnail = URL.createObjectURL(thumbnail);
-                }
-                
                 const pdf = document.getElementById('productPdf').files[0];
-                if (pdf) {
-                    product.pdf = pdf.name;
-                }
                 
-                renderProducts();
-                renderAdminProducts();
-                form.reset();
-                showNotification('Product updated successfully');
+                // Check if files are updated
+                if (thumbnail) {
+                    // Upload thumbnail to Firebase Storage
+                    const thumbnailRef = storage.ref(`thumbnails/${Date.now()}_${thumbnail.name}`);
+                    const thumbnailUploadTask = thumbnailRef.put(thumbnail);
+                    
+                    thumbnailUploadTask.on('state_changed', 
+                        (snapshot) => {
+                            // Progress indicator can be added here
+                        }, 
+                        (error) => {
+                            showNotification('Error uploading thumbnail', 'error');
+                        }, 
+                        () => {
+                            // Get thumbnail download URL
+                            thumbnailUploadTask.snapshot.ref.getDownloadURL().then((thumbnailURL) => {
+                                // Update product with new thumbnail
+                                updateProduct(productId, {
+                                    title,
+                                    author,
+                                    price,
+                                    discountPrice,
+                                    description,
+                                    thumbnail: thumbnailURL,
+                                    pdf: product.pdf,
+                                    dateUpdated: new Date().toISOString()
+                                });
+                            });
+                        }
+                    );
+                } else if (pdf) {
+                    // Upload PDF to Firebase Storage
+                    const pdfRef = storage.ref(`pdfs/${Date.now()}_${pdf.name}`);
+                    const pdfUploadTask = pdfRef.put(pdf);
+                    
+                    pdfUploadTask.on('state_changed', 
+                        (snapshot) => {
+                            // Progress indicator can be added here
+                        }, 
+                        (error) => {
+                            showNotification('Error uploading PDF', 'error');
+                        }, 
+                        () => {
+                            // Get PDF download URL
+                            pdfUploadTask.snapshot.ref.getDownloadURL().then((pdfURL) => {
+                                // Update product with new PDF
+                                updateProduct(productId, {
+                                    title,
+                                    author,
+                                    price,
+                                    discountPrice,
+                                    description,
+                                    thumbnail: product.thumbnail,
+                                    pdf: pdfURL,
+                                    dateUpdated: new Date().toISOString()
+                                });
+                            });
+                        }
+                    );
+                } else {
+                    // Update product without changing files
+                    updateProduct(productId, {
+                        title,
+                        author,
+                        price,
+                        discountPrice,
+                        description,
+                        thumbnail: product.thumbnail,
+                        pdf: product.pdf,
+                        dateUpdated: new Date().toISOString()
+                    });
+                }
                 
                 // Reset form behavior
                 form.onsubmit = null;
             };
         }
 
+        // Update product in Firestore
+        function updateProduct(productId, productData) {
+            productsRef.doc(productId).update(productData).then(() => {
+                showNotification('Product updated successfully');
+                loadProducts();
+                renderAdminProducts();
+            }).catch((error) => {
+                showNotification('Error updating product', 'error');
+            });
+        }
+
         // Delete product
         function deleteProduct(productId) {
             if (confirm('Are you sure you want to delete this product?')) {
-                products = products.filter(p => p.id !== productId);
-                renderProducts();
-                renderAdminProducts();
-                showNotification('Product deleted successfully');
-                updateAdminStats();
+                productsRef.doc(productId).delete().then(() => {
+                    showNotification('Product deleted successfully');
+                    loadProducts();
+                    renderAdminProducts();
+                    updateAdminStats();
+                }).catch((error) => {
+                    showNotification('Error deleting product', 'error');
+                });
             }
-        }
-
-        // Load payment settings
-        function loadPaymentSettings() {
-            document.getElementById('upiId').value = paymentSettings.upiId;
-            document.getElementById('bankName').value = paymentSettings.bankName;
-            document.getElementById('accountHolder').value = paymentSettings.accountHolder;
-            document.getElementById('accountNumber').value = paymentSettings.accountNumber;
-            document.getElementById('ifscCode').value = paymentSettings.ifscCode;
-            
-            updatePaymentDisplay();
         }
 
         // Update payment display
@@ -2124,33 +2447,14 @@ All our e-books are carefully curated and written by experts in their respective
             }
         }
 
-        // Load about content
-        function loadAboutContent() {
-            document.getElementById('aboutContentEditor').value = aboutContent;
-            updateAboutContent();
-        }
-
-        // Update about content
-        function updateAboutContent() {
-            document.getElementById('aboutContent').innerHTML = aboutContent.replace(/\n/g, '<br>');
-        }
-
-        // Load social links
-        function loadSocialLinks() {
-            document.getElementById('facebookLink').value = socialLinks.facebook;
-            document.getElementById('youtubeLink').value = socialLinks.youtube;
-            document.getElementById('instagramLink').value = socialLinks.instagram;
-            document.getElementById('twitterLink').value = socialLinks.twitter;
-            
-            document.getElementById('footerFacebook').href = socialLinks.facebook;
-            document.getElementById('footerYoutube').href = socialLinks.youtube;
-            document.getElementById('footerInstagram').href = socialLinks.instagram;
-            document.getElementById('footerTwitter').href = socialLinks.twitter;
-        }
-
         // Render orders
         function renderOrders() {
             ordersTable.innerHTML = '';
+            
+            if (orders.length === 0) {
+                ordersTable.innerHTML = '<tr><td colspan="7" style="text-align: center;">No orders available</td></tr>';
+                return;
+            }
             
             orders.forEach(order => {
                 const row = document.createElement('tr');
@@ -2160,7 +2464,7 @@ All our e-books are carefully curated and written by experts in their respective
                     <td>${order.products.map(p => p.title).join(', ')}</td>
                     <td>₹${order.total}</td>
                     <td>${order.paymentStatus}</td>
-                    <td>${order.paymentProof}</td>
+                    <td><a href="${order.paymentProof}" target="_blank">View</a></td>
                     <td class="admin-actions">
                         ${order.paymentStatus === 'Pending' ? 
                             `<button class="btn btn-small btn-success verify-payment" data-id="${order.id}">Verify</button>` : 
@@ -2175,14 +2479,14 @@ All our e-books are carefully curated and written by experts in their respective
             // Add event listeners
             document.querySelectorAll('.verify-payment').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const orderId = parseInt(btn.getAttribute('data-id'));
+                    const orderId = btn.getAttribute('data-id');
                     verifyPayment(orderId);
                 });
             });
             
             document.querySelectorAll('.delete-order').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const orderId = parseInt(btn.getAttribute('data-id'));
+                    const orderId = btn.getAttribute('data-id');
                     deleteOrder(orderId);
                 });
             });
@@ -2190,24 +2494,28 @@ All our e-books are carefully curated and written by experts in their respective
 
         // Verify payment
         function verifyPayment(orderId) {
-            const order = orders.find(o => o.id === orderId);
-            if (!order) return;
-            
-            order.paymentStatus = 'Verified';
-            renderOrders();
-            showNotification('Payment verified successfully');
-            updateAdminStats();
-            
-            // In a real application, you would send an email to the customer with download links
+            ordersRef.doc(orderId).update({
+                paymentStatus: 'Verified',
+                dateVerified: new Date().toISOString()
+            }).then(() => {
+                showNotification('Payment verified successfully');
+                loadOrders();
+                updateAdminStats();
+            }).catch((error) => {
+                showNotification('Error verifying payment', 'error');
+            });
         }
 
         // Delete order
         function deleteOrder(orderId) {
             if (confirm('Are you sure you want to delete this order?')) {
-                orders = orders.filter(o => o.id !== orderId);
-                renderOrders();
-                showNotification('Order deleted successfully');
-                updateAdminStats();
+                ordersRef.doc(orderId).delete().then(() => {
+                    showNotification('Order deleted successfully');
+                    loadOrders();
+                    updateAdminStats();
+                }).catch((error) => {
+                    showNotification('Error deleting order', 'error');
+                });
             }
         }
 
